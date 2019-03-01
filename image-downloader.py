@@ -71,7 +71,7 @@ def init(url):
     global logger
     basename = url_to_filename(url)
     logfile = basename + ".log"
-    handler = logging.handlers.RotatingFileHandler(logfile, maxBytes=100*1024*1024, backupCount=5)
+    handler = logging.handlers.RotatingFileHandler(logfile, maxBytes=10*1024*1024, backupCount=5)
     handler.setLevel(logging.INFO)
     handler.setFormatter(logging.Formatter('%(asctime)s %(levelname)s %(message)s'))
     logger = logging.getLogger(__name__)
