@@ -9,6 +9,7 @@ import requests
 import sqlite3
 import MySQLdb
 import sys
+import time
 import traceback
 import urlparse
 import logging 
@@ -90,7 +91,13 @@ def push_url_queue(con, site_id, url):
 
 def pop_url_queue(con, site_id):
     c = con.cursor()
-    c.execute("SELECT id, url FROM url_queue WHERE site_id = %s LIMIT 1", (site_id,))
+    try:
+        c.execute("SELECT id, url FROM url_queue WHERE site_id = %s LIMIT 1", (site_id,))
+    except OperationalError:
+        logger.warning('re-try once after 5 sec')
+        time.sleep(5)
+        c.execute("SELECT id, url FROM url_queue WHERE site_id = %s LIMIT 1", (site_id,))
+
     r = c.fetchone()
     if r is not None:
         id = int(r[0])
@@ -99,17 +106,33 @@ def pop_url_queue(con, site_id):
         logger.info("URL queue is empty")
         return None
 
-    c.execute("DELETE FROM url_queue WHERE site_id = %s AND id = %s", (site_id, id))
+    try:
+        c.execute("DELETE FROM url_queue WHERE site_id = %s AND id = %s", (site_id, id))
+    except OperationalError:
+        logger.warning('re-try once after 5 sec')
+        time.sleep(5)
+        c.execute("DELETE FROM url_queue WHERE site_id = %s AND id = %s", (site_id, id))
 
     return url
 
 def delete_url_queue(con, site_id, url):
     c = con.cursor()
-    c.execute("DELETE FROM url_queue WHERE site_id = %s AND url = %s", (site_id, url))
+    try:
+        c.execute("DELETE FROM url_queue WHERE site_id = %s AND url = %s", (site_id, url))
+    except OperationalError:
+        logger.warning('re-try once after 5 sec')
+        time.sleep(5)
+        c.execute("DELETE FROM url_queue WHERE site_id = %s AND url = %s", (site_id, url))
 
 def is_empty_url_queue(con, site_id):
     c = con.cursor()
-    c.execute("SELECT count(id) FROM url_queue WHERE site_id = %s LIMIT 1", (site_id,))
+    try:
+        c.execute("SELECT count(id) FROM url_queue WHERE site_id = %s LIMIT 1", (site_id,))
+    except OperationalError:
+        logger.warning('re-try once after 5 sec')
+        time.sleep(5)
+        c.execute("SELECT count(id) FROM url_queue WHERE site_id = %s LIMIT 1", (site_id,))
+
     r = c.fetchone()
     count = int(r[0])
     return (count == 0)
@@ -130,14 +153,26 @@ def is_empty_url_queue(con, site_id):
 # False ... not downloaded yet
 def is_downloaded(con, site_id, url):
     c = con.cursor()
-    c.execute("SELECT count(id) FROM img_stats WHERE site_id = %s AND url = %s AND status = 1 LIMIT 1", (site_id, url))
+    try:
+        c.execute("SELECT count(id) FROM img_stats WHERE site_id = %s AND url = %s AND status = 1 LIMIT 1", (site_id, url))
+    except OperationalError:
+        logger.warning('re-try once after 5 sec')
+        time.sleep(5)
+        c.execute("SELECT count(id) FROM img_stats WHERE site_id = %s AND url = %s AND status = 1 LIMIT 1", (site_id, url))
+
     r = c.fetchone()
     count = int(r[0])
     return (count > 0)
 
 def is_checked(con, site_id, url):
     c = con.cursor()
-    c.execute("SELECT count(id) FROM img_stats WHERE site_id = %s AND url = %s AND status = 2 LIMIT 1", (site_id, url))
+    try:
+        c.execute("SELECT count(id) FROM img_stats WHERE site_id = %s AND url = %s AND status = 2 LIMIT 1", (site_id, url))
+    except OperationalError:
+        logger.warning('re-try once after 5 sec')
+        time.sleep(5)
+        c.execute("SELECT count(id) FROM img_stats WHERE site_id = %s AND url = %s AND status = 2 LIMIT 1", (site_id, url))
+
     r = c.fetchone()
     count = int(r[0])
     return (count > 0)
@@ -146,26 +181,53 @@ def is_checked(con, site_id, url):
 # False ... not sacnned yet
 def is_scanned(con, site_id, url):
     c = con.cursor()
-    c.execute("SELECT count(id) FROM pg_stats WHERE site_id = %s AND url = %s AND status >= 1 LIMIT 1", (site_id, url))
+    try:
+        c.execute("SELECT count(id) FROM pg_stats WHERE site_id = %s AND url = %s AND status >= 1 LIMIT 1", (site_id, url))
+    except OperationalError:
+        logger.warning('re-try once after 5 sec')
+        time.sleep(5)
+        c.execute("SELECT count(id) FROM pg_stats WHERE site_id = %s AND url = %s AND status >= 1 LIMIT 1", (site_id, url))
+
     r = c.fetchone()
     count = int(r[0])
     return (count > 0)
 
 def set_downloaded(con, site_id, url):
     c = con.cursor()
-    c.execute("INSERT INTO img_stats (site_id, url, status) VALUES (%s, %s, 1)", (site_id, url))
+    try:
+        c.execute("INSERT INTO img_stats (site_id, url, status) VALUES (%s, %s, 1)", (site_id, url))
+    except OperationalError:
+        logger.warning('re-try once after 5 sec')
+        time.sleep(5)
+        c.execute("INSERT INTO img_stats (site_id, url, status) VALUES (%s, %s, 1)", (site_id, url))
 
 def set_checked(con, site_id, url):
     c = con.cursor()
-    c.execute("INSERT INTO img_stats (site_id, url, status) VALUES (%s, %s, 2)", (site_id, url))
+    try:
+        c.execute("INSERT INTO img_stats (site_id, url, status) VALUES (%s, %s, 2)", (site_id, url))
+    except OperationalError:
+        logger.warning('re-try once after 5 sec')
+        time.sleep(5)
+        c.execute("INSERT INTO img_stats (site_id, url, status) VALUES (%s, %s, 2)", (site_id, url))
 
 def set_scanning(con, site_id, url):
     c = con.cursor()
-    c.execute("INSERT INTO pg_stats (site_id, url, status) VALUES (%s, %s, 1)", (site_id, url))
+    try:
+        c.execute("INSERT INTO pg_stats (site_id, url, status) VALUES (%s, %s, 1)", (site_id, url))
+    except OperationalError:
+        logger.warning('re-try once after 5 sec')
+        time.sleep(5)
+        c.execute("INSERT INTO pg_stats (site_id, url, status) VALUES (%s, %s, 1)", (site_id, url))
 
 def set_scanned(con, site_id, url):
     c = con.cursor()
-    c.execute("INSERT INTO pg_stats (site_id, url, status) VALUES (%s, %s, 2)", (site_id, url))
+    try:
+        c.execute("INSERT INTO pg_stats (site_id, url, status) VALUES (%s, %s, 2)", (site_id, url))
+    except OperationalError:
+        logger.warning('re-try once after 5 sec')
+        time.sleep(5)
+        c.execute("INSERT INTO pg_stats (site_id, url, status) VALUES (%s, %s, 2)", (site_id, url))
+
 
 def download_image(con, site_id, img_url, referer, dirname):
     filename = os.path.basename(img_url)
@@ -300,6 +362,12 @@ def scan(con, site_id, baseurl, basedir):
             logger.warning(traceback.format_exc())
 
         set_scanned(con, site_id, url)
+        
+
+def run(url):
+    url = re.sub('[\.\? _/]*$', '', url)
+    (con, site_id, basedir) = init(url)
+    scan(con, site_id, url, basedir)
 
 if __name__ == '__main__':
     try:
@@ -309,9 +377,7 @@ if __name__ == '__main__':
         sys.exit(1)
 
     try:
-        url = re.sub('[\.\? _/]*$', '', url)
-        (con, site_id, basedir) = init(url)
-        scan(con, site_id, url, basedir)
+        run(url)
     except:
         logger.error(traceback.format_exc())
         sys.exit(1)
