@@ -45,7 +45,7 @@ def text_to_filename(text):
     return re.sub('[ _]*$', '', text)
 
 class ImageDownloader(threading.Thread):
-    def __init__(self, url):
+    def __init__(self, url, download_wait_sec = 0, scan_wait_sec = 0, min_width = 600, min_height = 600):
         super(ImageDownloader, self).__init__()
         self.only_the_page = False
         self.site_number = 1
@@ -54,10 +54,10 @@ class ImageDownloader(threading.Thread):
         self.download_dir = '/xtorage/picture/sites'
 
         # setting parameters
-        self.download_wait_sec = 0
-        self.scan_wait_sec = 0
-        self.min_width = 600
-        self.min_height = 600
+        self.download_wait_sec = download_wait_sec
+        self.scan_wait_sec = scan_wait_sec
+        self.min_width = min_width
+        self.min_height = min_height
 
         # status parameters
         self.start_date = None
@@ -438,7 +438,7 @@ class ImageDownloader(threading.Thread):
         if self.is_running():
             self.logger.info("DONE")
         else:
-            self.logger.info("STOPED")
+            self.logger.info("STOPPED")
         
 if __name__ == '__main__':
     try:

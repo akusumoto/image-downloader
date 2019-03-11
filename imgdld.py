@@ -63,8 +63,16 @@ class CommandInfo:
 #   min of image height
 
 imgdownloader_threads = []
+download_wait_sec = 0
+scan_wait_sec = 0
+min_width = 600
+min_height = 600
 def run_command(socket, server_info, command_info, command):
     global imgdownloader_threads
+    global download_wait_sec
+    global scan_wait_sec
+    global min_width
+    global min_height
     logger.info("command: {}".format(command))
     
     cmd_lower = command.lower()
@@ -73,9 +81,9 @@ def run_command(socket, server_info, command_info, command):
             t.stop()
         for t in imgdownloader_threads:
             t.join()
-            send(socket, 'stopped scanning {}'.format(t.baseurl))
+            send(socket, 'stopped {}'.format(t.baseurl))
         server_info.status = ServerInfo.ST_SHUTDOWN
-        send(socket, 'shutdown daemon')
+        send(socket, '200 shutdown daemon')
 
     elif cmd_lower == "quit":
         command_info.status = CommandInfo.ST_EXIT
@@ -83,14 +91,18 @@ def run_command(socket, server_info, command_info, command):
     elif cmd_lower.startswith("scan "):
         cmd, url = command.split()
         if url is None or len(url) == 0:
-            send(socket, 'error: scan (url)')
+            send(socket, '500 error: scan (url)')
             return
 
-        imgdl = imgdownloader.ImageDownloader(url)
+        imgdl = imgdownloader.ImageDownloader(url, \
+                    download_wait_sec = download_wait_sec, \
+                    scan_wait_sec = scan_wait_sec, \
+                    min_width = min_width, \
+                    min_height = min_height)
         imgdownloader_threads.append(imgdl)
         imgdl.start()
 
-        send(socket, 'started scanning {}'.format(url))
+        send(socket, '200 started scanning {}'.format(url))
 
     elif cmd_lower == 'status':
         n_threads = 0
@@ -98,15 +110,11 @@ def run_command(socket, server_info, command_info, command):
             if t.is_alive():
                 now = datetime.now()
                 scanning_time = now - t.start_date
-                scanning_time_days = int(scanning_time.seconds / (60*60*24))
-                scanning_time_hours = int(scanning_time.seconds % (60*60*24) / (60*60))
+                scanning_time_hours = int(scanning_time.seconds / (60*60))
                 scanning_time_minutes = int(scanning_time.seconds % (60*60) / 60)
                 scanning_time_seconds = scanning_time.seconds % 60
-                if scanning_time_days > 0:
-                    scanning_time_str = ("%2dd " % scanning_time_days)
-                else:
-                    scanning_time_str = "    "
-                scanning_time_str = ("%02d:%02d:%02d" % ( \
+                scanning_time_str = ("%02d-%02d:%02d:%02d" % ( 
+                            scanning_time.days, \
                             scanning_time_hours, \
                             scanning_time_minutes, \
                             scanning_time_seconds))
@@ -115,59 +123,69 @@ def run_command(socket, server_info, command_info, command):
                 check_speed = int(scanning_time.seconds / t.num_of_checked_images) if t.num_of_checked_images > 0 else 0
                 scan_speed = int(scanning_time.seconds / t.num_of_scanned_pages) if  t.num_of_scanned_pages > 0 else 0
 
-                downloaded_image_str = ("%6d download (%4d sec/image)" % (t.num_of_downloaded_images, download_speed))
-                checked_image_str = ("%6d check (%4d sec/image)" % (t.num_of_checked_images, check_speed))
-                scanned_page_str = ("%6d scan (%4d sec/page)" % (t.num_of_scanned_pages, scan_speed))
-
-                send(socket, '{site_id}: {start_date} {scanning_time} {scanned_page} {downloaded_image} {checked_image} - {url}'.format( \
+                send(socket, '{site_id} {start_date} {scanning_time} {scanned_page} {scan_page_speed} {downloaded_image} {download_image_speed} {checked_image} {check_image_speed} {url}'.format( \
                         site_id=t.site_id, \
-                        start_date= t.start_date.strftime("%Y-%m-%d %H:%M:%S"), \
+                        start_date= t.start_date.strftime("%Y-%m-%d-%H:%M:%S"), \
                         scanning_time=scanning_time_str, \
-                        scanned_page=scanned_page_str, \
-                        downloaded_image=downloaded_image_str, \
-                        checked_image=checked_image_str, \
+                        scanned_page=t.num_of_scanned_pages, \
+                        scan_page_speed=scan_speed, \
+                        downloaded_image=t.num_of_downloaded_images, \
+                        download_image_speed=download_speed, \
+                        checked_image=t.num_of_checked_images, \
+                        check_image_speed=check_speed, \
                         url=t.baseurl))
 
                 n_threads += 1
 
         if n_threads > 0:
-            send(socket, '{} threads running'.format(n_threads))
+            send(socket, '200 {} scans running'.format(n_threads))
         else:
-            send(socket, 'no threads running')
+            send(socket, '200 no scan running')
 
     elif cmd_lower.startswith('set '):
         params = command.split()
         if params[1] == 'download_wait_sec':
             try:
-                sec = int(params[2])
+                download_wait_sec = int(params[2])
                 for t in imgdownloader_threads:
-                    t.download_wait_sec = sec
+                    t.download_wait_sec = download_wait_sec
+                send(socket, '200 set download_wait_sec {}'.format(download_wait_sec))
             except:
-                send(socket, 'set download_wait_sec (sec)')
+                send(socket, '500 set download_wait_sec (sec)')
         elif params[1] == 'scan_wait_sec':
             try:
-                sec = int(params[2])
+                scan_wait_sec = int(params[2])
                 for t in imgdownloader_threads:
-                    t.scan_wait_sec = sec
+                    t.scan_wait_sec = scan_wait_sec
+                send(socket, '200 set scan_wait_sec {}'.format(scan_wait_sec))
             except:
-                send(socket, 'set scan_wait_sec (sec)')
+                send(socket, '500 set scan_wait_sec (sec)')
         elif params[1] == 'min_width':
             try:
-                pixel = int(params[2])
+                min_width = int(params[2])
                 for t in imgdownloader_threads:
-                    t.min_width = pixel
+                    t.min_width = min_width
+                send(socket, '200 set min_width {}'.format(min_width))
             except:
-                send(socket, 'set min_width (pixel)')
+                send(socket, '500 set min_width (pixel)')
         elif params[1] == 'min_height':
             try:
-                pixel = int(params[2])
+                min_height = int(params[2])
                 for t in imgdownloader_threads:
-                    t.min_hight = pixel
+                    t.min_hight = min_height
+                send(socket, '200 set min_height {}'.format(min_heigh))
             except:
-                send(socket, 'set min_height (pixel)')
+                send(socket, '500 set min_height (pixel)')
+
+    elif cmd_lower == 'config':
+        send(socket, 'download_wait_sec {}'.format(download_wait_sec))
+        send(socket, 'scan_wait_sec {}'.format(scan_wait_sec))
+        send(socket, 'min_width {}'.format(min_width))
+        send(socket, 'min_height {}'.format(min_height))
+        send(socket, '200 done')
 
     else:
-        send(socket, 'unknown command: {}'.format(command))
+        send(socket, '500 unknown command {}'.format(command))
 
 
 def recv(socket):
@@ -216,6 +234,7 @@ def main_loop():
 
             except:
                 logger.error(traceback.format_exc())
+                send(clientsocket, '500 ERROR')
 
 
         clientsocket.close()
