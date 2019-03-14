@@ -63,6 +63,17 @@ class CommandInfo:
 #   min of image height
 
 imgdownloader_threads = []
+def check_threads_alive():
+    global imgdownloader_threads
+
+    del_threads = []
+    for t in imgdownloader_threads:
+        if not t.is_alive():
+            del_threads.append(t)
+
+    for t in del_threads:
+        imgdownloader_threads.remove(t)
+
 download_wait_sec = 0
 scan_wait_sec = 0
 min_width = 600
@@ -74,6 +85,8 @@ def run_command(socket, server_info, command_info, command):
     global min_width
     global min_height
     logger.info("command: {}".format(command))
+
+    check_threads_alive()
     
     cmd_lower = command.lower()
     if cmd_lower == 'shutdown':

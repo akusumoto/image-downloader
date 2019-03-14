@@ -87,7 +87,7 @@ class ImageDownloader(threading.Thread):
         self.logger.handlers = []
         self.logger.addHandler(handler)
 
-        self.status = 0
+        self.stop_event = threading.Event()
 
     def __del__(self):
         try:
@@ -95,14 +95,8 @@ class ImageDownloader(threading.Thread):
         except:
             pass
 
-    def set_status_running(self):
-        self.status = 1
-
     def stop(self):
-        self.status = 2
-
-    def is_running(self):
-        return (self.status == 1)
+        self.stop_event.set()
 
     def is_same_site(self, url):
         baseurl_tmp = re.sub('^https?://', '', self.baseurl)
@@ -342,7 +336,7 @@ class ImageDownloader(threading.Thread):
 
     def download_images(self, url, dom):
         for img in dom('img').items():
-            if not self.is_running():
+            if self.stop_event.is_set():
                 return
 
             if img.attr['src'] is None:
@@ -353,7 +347,7 @@ class ImageDownloader(threading.Thread):
             self._downlaod_images(url, dom, img_url)
 
         for a in dom('a').items():
-            if not self.is_running():
+            if self.stop_event.is_set():
                 return
 
             if a.attr['href'] is None:
@@ -366,7 +360,7 @@ class ImageDownloader(threading.Thread):
 
     def scan_links(self, url, dom):
         for a in dom('a').items():
-            if not self.is_running():
+            if self.stop_event.is_set():
                 return
 
             if a.attr['href'] is None:
@@ -393,10 +387,9 @@ class ImageDownloader(threading.Thread):
     # 最初に渡したURLはスキャン済みでとりあえずスキャンする
     def scan(self):
         is_first = True
-        self.set_status_running()
         self.start_date = datetime.now()
 
-        while self.is_running() and (is_first or not self.is_empty_url_queue()):
+        while (not self.stop_event.is_set()) and (is_first or not self.is_empty_url_queue()):
             if is_first:
                 url = self.baseurl
                 is_first = False
@@ -435,10 +428,10 @@ class ImageDownloader(threading.Thread):
     def run(self):
         self.scan()
 
-        if self.is_running():
-            self.logger.info("DONE")
-        else:
+        if self.stop_event.is_set():
             self.logger.info("STOPPED")
+        else:
+            self.logger.info("DONE")
         
 if __name__ == '__main__':
     try:
