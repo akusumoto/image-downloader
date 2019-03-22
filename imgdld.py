@@ -136,7 +136,7 @@ def run_command(socket, server_info, command_info, command):
                 check_speed = int(scanning_time.seconds / t.num_of_checked_images) if t.num_of_checked_images > 0 else 0
                 scan_speed = int(scanning_time.seconds / t.num_of_scanned_pages) if  t.num_of_scanned_pages > 0 else 0
 
-                send(socket, '{site_id} {start_date} {scanning_time} {scanned_page} {scan_page_speed} {downloaded_image} {download_image_speed} {checked_image} {check_image_speed} {url}'.format( \
+                send(socket, 'STATUS {site_id} {start_date} {scanning_time} {scanned_page} {scan_page_speed} {downloaded_image} {download_image_speed} {checked_image} {check_image_speed} {url}'.format( \
                         site_id=t.site_id, \
                         start_date= t.start_date.strftime("%Y-%m-%d-%H:%M:%S"), \
                         scanning_time=scanning_time_str, \
@@ -247,7 +247,10 @@ def main_loop():
 
             except:
                 logger.error(traceback.format_exc())
-                send(clientsocket, '500 ERROR')
+                try:
+                    send(clientsocket, '500 ERROR')
+                except:
+                    pass
 
 
         clientsocket.close()
